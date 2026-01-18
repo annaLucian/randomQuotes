@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { QuoteContext } from "./QuoteContext";
-import { fetchApiQuote, getThreeWords, API_KEY_GYPHI } from "./servicios";
+import { fetchApiQuote, fetchApiGiphy } from "./servicios";
+
+const getThreeWords = (words) => {
+  const sliceWords = words.split(" ").slice(-3);
+  const threeWords = sliceWords.join(" ").toLowerCase();
+  return threeWords;
+};
 
 export const QuoteProvider = ({ children }) => {
   const [newQuote, setNewQuote] = useState("");
@@ -23,23 +29,11 @@ export const QuoteProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    if (!newQuote || typeof newQuote !== "string") return;
     const words = getThreeWords(newQuote);
-
-    const fetchApiGiphy = async () => {
-      try {
-        const response = await fetch(
-          `https://api.giphy.com/v1/gifs/search?api_key=${API_KEY_GYPHI}&q=${words}&limit=1&offset=0&rating=g&lang=en&bundle=messaging_non_clips`
-        );
-        if (!response.ok) throw new Error("La imagen no se puede encontrar");
-
-        const data = await response.json();
-        setGyphi(data?.data[0]?.images?.fixed_height?.url);
-      } catch (error) {
-        console.error("La imagen no se puede mostrar", error);
-      }
-    };
-
-    fetchApiGiphy();
+    fetchApiGiphy(words)
+      .then((data) => setGyphi(data))
+      .catch((error) => setError(error.message));
   }, [newQuote]);
 
   return (
