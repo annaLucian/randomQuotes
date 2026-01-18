@@ -1,27 +1,41 @@
-import { render, screen } from "@testing-library/react";
-import { userEvent } from "@testing-library/user-event";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { QuoteProvider } from "./QuoteProvider.jsx";
+import * as servicios from "./servicios";
 import App from "./App.jsx";
 
-globalThis.fetch = vi.fn(); // creamos al "actor" que respondera por el fetch
+const spyQuoteText = {
+  first: "Deceive not thy physician",
+  second: "Segunda frase: ¡Adiós!",
+};
 
-vi.mock("./servicios", async () => {
-  const actualServices = await vi.importActual("./servicios");
+const spyImageUrl = {
+  first: "https://giphy.com/test.gif",
+  second: "https://giphy.com/test2.gif",
+};
 
-  return {
-    ...actualServices,
-    fetchApiQuote: vi.fn(() =>
-      Promise.resolve({
-        quote: "Deceive not thy physician confessor nor lawyer",
-      }),
-    ),
-    fetchApiGiphy: vi.fn(() => Promise.resolve("https://giphy.com/test.gif")),
-  };
-});
+const spyQuote = vi
+  .spyOn(servicios, "fetchApiQuote")
+  .mockImplementationOnce(() => {
+    return Promise.resolve({ quote: spyQuoteText.first });
+  })
+  .mockImplementationOnce(() => {
+    return Promise.resolve({ quote: spyQuoteText.second });
+  });
+
+const spyGyphi = vi
+  .spyOn(servicios, "fetchApiGiphy")
+  .mockImplementationOnce(() => {
+    return Promise.resolve(spyImageUrl.first);
+  })
+  .mockImplementationOnce(() => {
+    return Promise.resolve(spyImageUrl.second);
+  });
 
 describe("Render <App/>", () => {
   it("should there be a random quote", async () => {
+    const user = userEvent.setup();
     render(
       <QuoteProvider>
         <App />
@@ -29,17 +43,18 @@ describe("Render <App/>", () => {
     );
 
     // 3. Verificamos la frase (Esta viene del vi.mock de servicios)
-    const quoteText = await screen.findByText(/Deceive not thy physician/i);
-    expect(quoteText).toBeInTheDocument();
 
-    // 4. Verificamos el GIF
+    expect(await screen.findByText(spyQuoteText.first)).toBeInTheDocument();
+
     const giftImage = await screen.findByAltText(/gif de la frase/i);
 
-    // Usamos waitFor para darle un respiro a React para que pinte la URL
-
-    expect(giftImage).toHaveAttribute("src", "https://giphy.com/test.gif");
+    expect(giftImage).toHaveAttribute("src", spyImageUrl.first);
 
     const button = screen.getByText(/new quote/i);
-    await userEvent.click(button);
+    await user.click(button);
+
+    expect(await screen.findByText(spyQuoteText.second)).toBeInTheDocument();
+    expect(spyQuote).toHaveBeenCalledTimes(2);
+    expect(spyGyphi).toHaveBeenCalledTimes(2);
   });
 });
